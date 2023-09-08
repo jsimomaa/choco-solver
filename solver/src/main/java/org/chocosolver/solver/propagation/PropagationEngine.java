@@ -305,7 +305,9 @@ public class PropagationEngine {
     }
 
     public void schedule(Propagator<?> prop, int pindice, int mask) {
-        prop.doScheduleEvent(pindice, mask);
+        if (prop.reactToFineEvent()) {
+            prop.doScheduleEvent(pindice, mask);
+        }
         notEmpty |= (1 << prop.doSchedule(pro_queue));
     }
 
