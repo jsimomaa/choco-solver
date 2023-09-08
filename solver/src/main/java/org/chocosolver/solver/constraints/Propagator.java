@@ -201,11 +201,22 @@ public abstract class Propagator<V extends Variable> implements ICause, Identity
         void accept(int a, int b);
     }
 
+    private class FineEvtConsumer implements IntIntConsumer {
+        
+        @Override
+        public void accept(int i, int m) {
+            if (eventmasks[i] == 0) {
+                eventsets.addLast(i);
+            }
+            eventmasks[i] |= m;
+        }
+    }
+
     /**
      * Default action to do on fine event : nothing
      */
-    private IntIntConsumer fineevt = (i, m) -> {};
-
+    private IntIntConsumer fineevt = null;
+    
     /**
      * Denotes the reifying variable when this propagator is reified, null otherwise.
      */
@@ -250,16 +261,10 @@ public abstract class Propagator<V extends Variable> implements ICause, Identity
         operations[2] = () -> state = ACTIVE;
 
         // for propagation purpose
-        eventmasks = new int[vars.length];
         if (reactToFineEvent()) {
             eventsets = new IntCircularQueue(vars.length);
             eventmasks = new int[vars.length];
-            fineevt = (i, m) -> {
-                if (eventmasks[i] == 0) {
-                    eventsets.addLast(i);
-                }
-                eventmasks[i] |= m;
-            };
+            fineevt = new FineEvtConsumer();
         }
     }
 
@@ -904,7 +909,9 @@ public abstract class Propagator<V extends Variable> implements ICause, Identity
     }
 
     public void doScheduleEvent(int pindice, int mask){
-        fineevt.accept(pindice, mask);
+        if (fineevt != null) {
+            fineevt.accept(pindice, mask);
+        }
     }
 
     /**
