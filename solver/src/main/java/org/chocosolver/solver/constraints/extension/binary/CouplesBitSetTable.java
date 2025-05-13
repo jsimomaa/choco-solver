@@ -88,6 +88,7 @@ class CouplesBitSetTable extends BinRelation {
     private int lastOffset;
     private int lastO;
     private int[] lastIndex;
+    private int indexOffset;
 
     /**
      * Optimized check that reuses cached data to determine if `val` is unsupported.
@@ -100,13 +101,12 @@ class CouplesBitSetTable extends BinRelation {
             if (tableForVal.get(i - lastO)) {
                 return false;
             }
-
-            if (lastIndex[i] == -1) {
-                int tempI = i;
+            int idx = i + indexOffset;
+            if (lastIndex[idx] == -1) {
                 i = lastV.nextValue(i);
-                lastIndex[tempI] = i;
+                lastIndex[idx] = i + indexOffset;
             } else {
-                i = lastIndex[i];
+                i = lastIndex[idx] - indexOffset;
             }
         }
 
@@ -137,10 +137,11 @@ class CouplesBitSetTable extends BinRelation {
             lastO = offsets[1 - var];
 
             BitSet tableForVal = lastTable[val - lastOffset];
-
+            indexOffset = -lastLB;
+            int indexSize = lastUB - lastLB + 1;
             // Ensure lastIndex is large enough
-            if (lastIndex == null || lastIndex.length <= lastUB) {
-                lastIndex = new int[lastUB + 1];
+            if (lastIndex == null || lastIndex.length < indexSize) {
+                lastIndex = new int[indexSize];
             }
             Arrays.fill(lastIndex, -1);
 
