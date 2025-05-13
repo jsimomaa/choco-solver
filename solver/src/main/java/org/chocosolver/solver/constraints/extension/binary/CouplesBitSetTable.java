@@ -12,6 +12,7 @@ package org.chocosolver.solver.constraints.extension.binary;
 import org.chocosolver.solver.constraints.extension.Tuples;
 import org.chocosolver.solver.variables.IntVar;
 
+import java.util.Arrays;
 import java.util.BitSet;
 
 /**
@@ -79,23 +80,79 @@ class CouplesBitSetTable extends BinRelation {
         return table[0][x - offsets[0]].get(y - offsets[1]);
     }
 
+    private int lastVar;
+    private IntVar lastV;
+    private int lastLB;
+    private int lastUB;
+    private BitSet[] lastTable;
+    private int lastOffset;
+    private int lastO;
+    private int[] lastIndex;
+
+    /**
+     * Optimized check that reuses cached data to determine if `val` is unsupported.
+     */
+    private boolean checkUnsupportedValueOptimized(int val) {
+        BitSet tableForVal = lastTable[val - lastOffset];
+        int i = lastLB;
+
+        while (i <= lastUB) {
+            if (tableForVal.get(i - lastO)) {
+                return false;
+            }
+
+            if (lastIndex[i] == -1) {
+                int tempI = i;
+                i = lastV.nextValue(i);
+                lastIndex[tempI] = i;
+            } else {
+                i = lastIndex[i];
+            }
+        }
+
+        return true;
+    }
+
 	/**
      * checks if var=val has no support within the domain of v
      * @param var a variable index
      * @param val a value for var
      * @param v a variable
      * @return true iff there exists no support for v where var = val
+     * 
+     * 
+     * Uses caching to speed up repeated queries on the same variable.
      */
     public boolean checkUnsupportedValue(int var, int val, IntVar v) {
-        int UB = v.getUB();
-        BitSet _table = table[var][val - offsets[var]];
-        int o = offsets[1 - var];
-        for (int i = v.getLB(); i <= UB; i = v.nextValue(i)) {
-            if (_table.get(i - o)) {
-                return false;
+        if (var == lastVar && v == lastV) {
+            return checkUnsupportedValueOptimized(val);
+        } else {
+            // Cache current state
+            lastVar = var;
+            lastV = v;
+            lastLB = v.getLB();
+            lastUB = v.getUB();
+            lastTable = table[var];
+            lastOffset = offsets[var];
+            lastO = offsets[1 - var];
+
+            BitSet tableForVal = lastTable[val - lastOffset];
+
+            // Ensure lastIndex is large enough
+            if (lastIndex == null || lastIndex.length <= lastUB) {
+                lastIndex = new int[lastUB + 1];
             }
+            Arrays.fill(lastIndex, -1);
+
+            // Perform full scan
+            for (int i = lastLB; i <= lastUB; i = v.nextValue(i)) {
+                if (tableForVal.get(i - lastO)) {
+                    return false;
+                }
+            }
+
+            return true;
         }
-        return true;
     }
 
     @Override
